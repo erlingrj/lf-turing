@@ -29,3 +29,7 @@ complete. And particularily the concept of the event queue. The Turing Machine
 has its tape encoded in the event queue. This requires a little trickery, but it
 is nice since it shows that finding a bound for the maximum size of the event
 queue, is undecidable. This was already known, but here is a demonstration of it.
+
+## To run it:
+- Install the Lingua Franca Compiler (LFC): `curl -Ls https://install.lf-lang.org | sh -s cli`
+- Compile and run `lfc src/TuringMachine.lf && bin/TuringMachine`
