@@ -1,0 +1,164 @@
+target C {
+  files: "common.h",
+  build-type: Debug
+};
+
+preamble {=
+  #include "common.h"
+  #include "platform.h"
+
+
+=}
+
+reactor Head {
+  input move: move_t
+  output symbol: bool
+  input write: bool
+  state current_pos:int = 0
+  state border:int = 0
+
+  logical action tape: bool // Drop policy?
+
+  reaction(tape) -> tape, symbol {=
+    tag_t event = lf_tag();
+    lf_print("At (%d: %d)", event.microstep, tape->value);
+    // Check if this event has microstep == current_pos
+    // If not, reschedule it for next time
+    if (event.microstep == self->current_pos) {
+      lf_set(symbol, tape->value);
+    } else {
+      lf_schedule_copy(tape, 1, &tape->value, sizeof(bool));
+    }
+  =}
+
+  reaction(write) -> tape {=
+    // Schedule an event for this exact microstep at next timestamp.
+    // Either _lf_schedule_at_tag
+    lf_print("Printing %d onto the tape", write->value);
+    lf_schedule_copy(tape, 1, &write->value, sizeof(bool));
+  =}
+
+  reaction(move) -> tape {=
+    // We encode an infinite tape onto a 1-sided infinte tape as follows:
+    /*
+        IF POSITIVE:
+        Right=+2
+        Left=-2
+
+        IF NEGATIVE:
+        Right=-2
+        Left=+2
+
+        IF POSITION=0:
+        Right=+1
+        Left=+2
+
+        IF POSITION=1:
+        Right = +2
+        Left = -1
+    */
+    bool zero = false;
+
+    if (self->current_pos == 0) {
+      if (move->value == RIGHT) {
+        if (self->border < 1) {
+          lf_schedule_copy(tape, 1, &zero, sizeof(bool));
+          self->border++;
+        } 
+        self->current_pos = 1;
+      } else {
+        while(self->border < 2) {
+          lf_schedule_copy(tape, 1, &zero, sizeof(bool));
+          self->border++;
+        }
+        self->current_pos = 2;
+      }
+    } else if (self->current_pos == 1) {
+      if (move->value == RIGHT) {
+        while(self->border < 3) {
+          lf_schedule_copy(tape, 1, &zero, sizeof(bool));
+          self->border++;
+        }
+        self->current_pos = 3;
+      } else {
+        self->current_pos = 0;
+      }
+    } else if (self->current_pos % 2 == 0) {
+      // Negative
+      if (move->value == RIGHT) {
+        self->current_pos -= 2;
+      } else {
+        while(self->border < self->current_pos+2) {
+          lf_schedule_copy(tape, 1, &zero, sizeof(bool));
+          self->border++;
+        }
+        self->current_pos += 2;
+      }
+
+    } else {
+      // Positive values
+      if (move->value == RIGHT) {
+        while(self->border < self->current_pos+2) {
+          lf_schedule_copy(tape, 1, &zero, sizeof(bool));
+          self->border++;
+        }
+        self->current_pos += 2;
+      } else {
+        self->current_pos -= 2;
+      }
+    }
+  =}
+  reaction(startup) -> tape {=
+    bool zero=0;
+    lf_schedule_copy(tape, 1, &zero, sizeof(bool));
+  =}
+}
+
+reactor Transition {
+  input symbol: bool
+  output move: move_t
+  output write: bool
+  state pc: int = 0
+  state m_configs:m_config_t*
+
+  reaction(startup) {=
+    // Simple program writing 0101010101 to the tape.
+    self->m_configs = (m_config_t *) malloc(7 * sizeof(m_config_t));
+    write_inst1(&self->m_configs[0], RIGHT, 1, 1);
+    write_inst1(&self->m_configs[1], RIGHT, 0, 2);
+    write_inst1(&self->m_configs[2], RIGHT, 1, 3);
+    write_inst1(&self->m_configs[3], RIGHT, 1, 4);
+    write_inst1(&self->m_configs[4], RIGHT, 0, 5);
+    write_inst1(&self->m_configs[5], RIGHT, 1, 6);
+    write_inst1(&self->m_configs[6], HALT, 0, 0);
+  =}
+
+  reaction(symbol) -> write, move {=
+    m_config_t inst = self->m_configs[self->pc];
+    action_t action = symbol ? inst.one : inst.zero;
+
+    if(action.move == HALT) {
+      // FIXME: How should we deal with shutdown when we have all
+      //  these events on the event queue. We have to go to the next timestep
+      //  and just print out all the events I think. For now we just stop
+      lf_print("HALT!");
+      lf_request_stop();
+    } else {
+      lf_set(move, action.move);
+      lf_set(write, action.symbol);
+      self->pc = action.next;
+    }
+  =}
+}
+
+
+main reactor {
+  head = new Head()
+  
+  transition =  new Transition()
+
+  head.symbol -> transition.symbol
+  transition.move -> head.move
+  transition.write -> head.write
+
+}

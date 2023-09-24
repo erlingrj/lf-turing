@@ -1,0 +1,22 @@
+target C;
+
+
+
+
+main reactor {
+
+  reaction(startup) {=
+    bool halt = false;
+    bool *tape;
+    m_config_t *m_configs;
+
+    int current_pos=0;
+    int current_state=0;
+
+    while(!halt) {
+      // Just implement the TM here. Easy-peasy
+    }
+    
+  =}
+
+}

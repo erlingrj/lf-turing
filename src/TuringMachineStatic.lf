@@ -1,0 +1,10 @@
+target C;
+
+
+main reactor {
+  timer t(0, 1 nsec)
+
+  reaction(t) {=
+    // Implement the TM here.
+  =}
+}
