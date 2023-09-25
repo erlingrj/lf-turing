@@ -23,6 +23,10 @@ reactor Head {
 
   // Default mode
   initial mode Running {
+    // This reaction is the core of the TM. It is triggered by the events on the
+    // Event queue. It waits until getting the event with the correct microstep
+    // index. All other events are just re-scheduled for the next timestep,
+    // where they will appear at the same microstep.
     reaction(tape) -> tape, symbol {=
       // lf_print("Tape");
       tag_t event = lf_tag();
@@ -42,7 +46,8 @@ reactor Head {
     =}
 
     reaction(move) -> tape {=
-      // We encode an infinite tape onto a 1-sided infinte tape as follows:
+      // We encode an infinite tape onto a 1-sided infinte storage (the event queue) 
+      // as follows:
       // (ustep, tape_pos)
       // (0, 0)
       // (1, 1)
