@@ -4,7 +4,7 @@
 typedef enum {RIGHT, LEFT, STAY, HALT} move_t;
 typedef char symbol_t;
 
-#define ACTION(move, symbol, next) { .move=move, .symbol=symbol, .next=next }
+#define ACTION(m, s, n) { .move=m, .symbol=s, .next=n }
 
 #define CONFIG2(action0, action1) { .zero = action0, .one=action1 }
 
@@ -36,16 +36,31 @@ typedef struct {
   action_t one;
 } m_config_t;
 
-static void write_action(action_t*dst, move_t move, bool symbol, int next) {
-  dst->move = move; 
-  dst->symbol=symbol; 
-  dst->next=next;
+
+/**
+ * @brief Converting a tape position into a microstep index
+ */
+static unsigned position_to_ustep(int pos) {
+  unsigned ustep;
+  if (pos > 0) {
+    ustep = pos*2-1;
+  } else {
+    ustep = pos*2;
+  }
+  return ustep;
 }
 
-static void write_inst1(m_config_t *dst, move_t move, bool symbol, int next) {
-  write_action(&dst->one, move,symbol,next);
-  write_action(&dst->zero, move,symbol,next);
+/**
+ * @brief Converting a microstep index into a tape position
+ */
+static int ustep_to_position(unsigned ustep) {
+  int pos;
+  if(ustep % 2 > 0) {
+    pos = ustep/2+1;
+  } else {
+    pos = ustep/2;
+  }
+  return pos;
 }
-
 
 #endif
